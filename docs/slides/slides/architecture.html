@@ -1,0 +1,34 @@
+<section id="architecture" class="diagram">
+<h2>reyab architecture</h2>
+<p class="lede">VS Code sees two open models; each chat turn is also sent to Opus, and both answers are stored.</p>
+<div class="host">
+<!-- nodes: VS 0,150,280,174  ARENA 0,500,280,140  ENVOY 400,0,340,640
+     VSR 860,0,320,140  A 860,167,320,140  B 860,334,320,140  REC 860,500,320,140
+     GRAF 1320,0,344,140  OPUS 1320,167,344,140  NV 1320,334,344,140  DB 1320,500,344,140
+     row centres y: 70, 237, 404, 570 ; bus x 1250 -->
+<div class="node" style="left:0px; top:150px; width:280px; height:174px"><h3>VS Code</h3><p>Continue or Cline, one key per team</p></div>
+<div class="node" style="left:0px; top:500px; width:280px; height:140px"><h3>/arena</h3><p>Blind votes in the browser</p></div>
+<div class="node gw" style="left:400px; top:0px; width:340px; height:640px"><h3>agentrouter</h3><p>Envoy :8080, Lua filter</p><ol class="steps"><li>Checks the team key</li><li>Reads the model and picks a backend</li><li>Mirrors the turn to the recorder</li><li>Streams the answer back and keeps a copy</li></ol></div>
+<div class="node optional" style="left:860px; top:0px; width:320px; height:140px"><h3>semantic-router</h3><p>Picks A or B for model auto</p></div>
+<div class="node oss" style="left:860px; top:167px; width:320px; height:140px"><h3>Model A</h3><p>vLLM, model A</p></div>
+<div class="node oss" style="left:860px; top:334px; width:320px; height:140px"><h3>Model B</h3><p>vLLM, model B</p></div>
+<div class="node" style="left:860px; top:500px; width:320px; height:140px"><h3>recorder</h3><p>Shadow, storage, votes, metrics</p></div>
+<div class="node" style="left:1320px; top:0px; width:344px; height:140px"><h3>Grafana</h3><p>Prometheus scrapes every service</p></div>
+<div class="node opus" style="left:1320px; top:167px; width:344px; height:140px"><h3>Claude Opus</h3><p>Shadow answer, never shown</p></div>
+<div class="node" style="left:1320px; top:334px; width:344px; height:140px"><h3>NVIDIA classifier</h3><p>Task type and complexity tags</p></div>
+<div class="node" style="left:1320px; top:500px; width:344px; height:140px"><h3>bench.db</h3><p>One row per turn, both answers</p></div>
+<x-connector class="link" x1="280" y1="237" x2="400" y2="237" head="both"></x-connector>
+<x-connector class="link" x1="280" y1="570" x2="400" y2="570" head="both"></x-connector>
+<x-connector class="link dashed" x1="740" y1="70" x2="860" y2="70" head="both"></x-connector>
+<x-connector class="link" x1="740" y1="237" x2="860" y2="237" head="both"></x-connector>
+<x-connector class="link" x1="740" y1="404" x2="860" y2="404" head="both"></x-connector>
+<x-connector class="link" x1="740" y1="570" x2="860" y2="570"></x-connector>
+<x-connector class="link" x1="1180" y1="570" x2="1250" y2="570" head="none"></x-connector>
+<x-connector class="link" x1="1250" y1="570" x2="1250" y2="237" head="none"></x-connector>
+<x-connector class="link" x1="1250" y1="237" x2="1320" y2="237"></x-connector>
+<x-connector class="link" x1="1250" y1="404" x2="1320" y2="404"></x-connector>
+<x-connector class="link" x1="1250" y1="570" x2="1320" y2="570"></x-connector>
+</div>
+<p class="legend"><span class="k-oss">Blue</span>: the open models participants use. <span class="k-opus">Orange</span>: Opus, external, never reachable from VS Code. Dashed: only for model auto.</p>
+<aside>Everything runs in one docker compose on a single GPU host. VS Code, through the Continue or Cline extension, talks only to agentrouter, an Envoy gateway, which lists just the two open models. Cline sends one request per agent step, so each step is shadowed separately. The Lua filter checks the team key, reads the requested model and sends the turn to qwen3-coder or gpt-oss; for the hidden model auto, vLLM Semantic Router chooses. The answer streams straight back. At the same time Envoy mirrors the request to the recorder, which sends it to Claude Opus, tags it with NVIDIA's prompt classifier and stores both answers in bench.db. Those pairs feed the LLM judge, the blind arena votes and the Grafana dashboard. Organizers also have a localhost-only listener on 8081 exposing all three models for offline task evals.</aside>
+</section>

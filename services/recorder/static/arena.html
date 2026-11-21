@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blind review</title>
+<style>
+:root {
+  --paper: #EEF1F4;
+  --surface: #FFFFFF;
+  --ink: #1A1F2B;
+  --muted: #5B6474;
+  --rule: #D5DBE3;
+  --code-bg: #F4F6F9;
+  --left: #2546C8;
+  --left-wash: #E6EBFB;
+  --right: #8A2F7A;
+  --right-wash: #F5E7F2;
+  --neutral-wash: #E4E8EE;
+  --focus: #0F7B8A;
+  --serif: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Cambria, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #151922; --surface: #1D2230; --ink: #E6E9EF; --muted: #9AA3B2; --rule: #2E3546;
+    --code-bg: #171B26; --left: #8EA2FF; --left-wash: #232B4A; --right: #E58BD3; --right-wash: #3A2238;
+    --neutral-wash: #262C3A; --focus: #5FC8D6; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper); color: var(--ink); font: 15px/1.55 var(--sans);
+  padding: 0 16px calc(120px + env(safe-area-inset-bottom, 0px));
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.wrap { max-width: 1320px; margin: 0 auto; }
+
+/* ------------------------------------------------------------ header -- */
+header {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 8px 24px; padding: 20px 0 12px;
+}
+header h1 { font: 600 17px/1.3 var(--sans); margin: 0; letter-spacing: -0.01em; }
+.tally { color: var(--muted); font-size: 14px; display: flex; gap: 16px; align-items: baseline; }
+.tally strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.linklike { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ------------------------------------------------------------ prompt -- */
+.prompt {
+  max-width: 76ch; margin: 8px 0 28px;
+}
+.prompt .q {
+  font-family: var(--serif); font-size: 21px; line-height: 1.5;
+  max-height: 22em; overflow: hidden; position: relative;
+}
+.prompt .q.open { max-height: none; }
+.prompt .q:not(.open).clipped::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4em;
+  background: linear-gradient(to bottom, transparent, var(--paper));
+}
+.prompt .q p { margin: 0 0 0.7em; }
+.prompt .q pre { font-size: 13px; }
+.prompt-tools { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 14px; }
+details.conv { margin-top: 12px; font-size: 14px; color: var(--muted); }
+details.conv summary { cursor: pointer; width: fit-content; }
+details.conv .msg { margin: 12px 0; padding-left: 12px; border-left: 2px solid var(--rule); color: var(--ink); }
+details.conv .role { font-weight: 600; color: var(--muted); }
+details.conv pre.raw { white-space: pre-wrap; word-break: break-word; font: 12.5px/1.5 var(--mono); margin: 4px 0 0; max-height: 24em; overflow: auto; }
+
+/* ----------------------------------------------------------- answers -- */
+.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 860px) { .answers { grid-template-columns: 1fr; } }
+.answer {
+  background: var(--surface); border-radius: 6px; min-width: 0;
+  border-top: 5px solid var(--side); transition: box-shadow 200ms ease;
+}
+.answer.left { --side: var(--left); --wash: var(--left-wash); }
+.answer.right { --side: var(--right); --wash: var(--right-wash); }
+.answer.chosen { box-shadow: 0 0 0 3px var(--side); }
+.answer > h2 {
+  margin: 0; padding: 12px 20px 0; font: 600 15px/1.3 var(--sans); color: var(--side);
+}
+.answer .body { padding: 8px 20px 20px; max-height: 70vh; overflow: auto; }
+@media (max-width: 860px) { .answer .body { max-height: none; } }
+
+.md p { margin: 0 0 0.8em; max-width: 80ch; }
+.md h3, .md h4 { font-size: 15px; margin: 1.1em 0 0.4em; }
+.md ul, .md ol { margin: 0 0 0.8em; padding-left: 1.4em; max-width: 78ch; }
+.md li { margin: 0.15em 0; }
+.md blockquote { margin: 0 0 0.8em; padding-left: 12px; border-left: 3px solid var(--rule); color: var(--muted); }
+.md code { font: 0.9em var(--mono); background: var(--code-bg); padding: 0.1em 0.3em; border-radius: 3px; }
+.md pre {
+  background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px;
+  padding: 12px 14px; overflow-x: auto; margin: 0 0 0.9em; font: 13px/1.5 var(--mono);
+}
+.md pre code { background: none; padding: 0; font: inherit; }
+.md .lang { display: block; color: var(--muted); font: 12px var(--sans); margin-bottom: 6px; }
+.tool {
+  margin: 0 0 0.9em; border: 1px dashed var(--side); border-radius: 4px; padding: 10px 14px;
+}
+.tool .name { font-weight: 600; }
+.tool pre { margin: 6px 0 0; border: 0; padding: 0; background: none; }
+
+/* ---------------------------------------------------------- vote bar -- */
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: var(--surface); border-top: 1px solid var(--rule);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.bar .row {
+  max-width: 1320px; margin: 0 auto; display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.4fr auto; gap: 8px; align-items: stretch;
+}
+.vote {
+  border: 2px solid var(--c, var(--rule)); background: transparent; border-radius: 6px;
+  padding: 10px 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.vote kbd {
+  font: 12px var(--mono); border: 1px solid currentColor; border-radius: 3px; padding: 0 5px; opacity: 0.7;
+}
+.vote.l { --c: var(--left); color: var(--left); border-radius: 6px 2px 2px 6px; }
+.vote.r { --c: var(--right); color: var(--right); border-radius: 2px 6px 6px 2px; }
+.vote.n { --c: var(--rule); }
+.vote:hover { background: var(--wash, var(--neutral-wash)); }
+.vote.l { --wash: var(--left-wash); }
+.vote.r { --wash: var(--right-wash); }
+.vote.fill.l { background: var(--left); color: var(--surface); }
+.vote.fill.r { background: var(--right); color: var(--surface); }
+.vote.fill.n { background: var(--ink); color: var(--surface); }
+.vote:disabled { cursor: default; }
+.skip { background: none; border: 0; color: var(--muted); padding: 0 8px; display: flex; align-items: center; gap: 8px; }
+.skip kbd { font: 12px var(--mono); border: 1px solid currentColor; border-radius: 3px; padding: 0 5px; }
+@media (max-width: 860px) {
+  .bar .row { grid-template-columns: 1fr 1fr; }
+  .vote.l { order: 1; } .vote.r { order: 2; } .vote.tie { order: 3; } .vote.bad { order: 4; }
+  .skip { order: 5; grid-column: 1 / -1; justify-content: center; padding: 4px; }
+  .vote kbd, .skip kbd { display: none; }
+  body { padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ------------------------------------------------------ states / key -- */
+.panel {
+  max-width: 60ch; margin: 12vh auto 0; background: var(--surface); border-radius: 6px; padding: 28px;
+}
+.panel h2 { margin: 0 0 8px; font: 600 20px/1.3 var(--sans); }
+.panel p { margin: 0 0 16px; color: var(--muted); }
+.panel form { display: flex; gap: 8px; flex-wrap: wrap; }
+.panel input {
+  flex: 1 1 240px; font: 15px var(--mono); padding: 10px 12px; border-radius: 4px;
+  border: 1px solid var(--rule); background: var(--paper); color: var(--ink);
+}
+.primary {
+  background: var(--ink); color: var(--surface); border: 0; border-radius: 4px; padding: 10px 18px; font-weight: 600;
+}
+.err { color: #B3261E; margin-top: 12px; }
+@media (prefers-color-scheme: dark) { .err { color: #FF8A80; } }
+.how { font-size: 14px; color: var(--muted); max-width: 76ch; margin: 28px 0 0; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Which answer would you rather get?</h1>
+    <div class="tally" id="tally" hidden>
+      <span>You've voted <strong id="mine">0</strong> <span id="mine-unit">times</span></span>
+      <span><strong id="total">0</strong> votes in total</span>
+      <button class="linklike" id="change-key" type="button">Change key</button>
+    </div>
+  </header>
+
+  <!-- key entry -->
+  <section class="panel" id="key-panel" hidden>
+    <h2>Enter your team key</h2>
+    <p>Use the same key as in your VS Code settings. It decides which prompts you review: your own team's.</p>
+    <form id="key-form">
+      <input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="hk-…" aria-label="Team key">
+      <button class="primary" type="submit">Start reviewing</button>
+    </form>
+    <div class="err" id="key-err" hidden></div>
+  </section>
+
+  <!-- nothing to review -->
+  <section class="panel" id="empty-panel" hidden>
+    <h2>Nothing to review right now</h2>
+    <p id="empty-text">New pairs show up a minute or two after someone on your team asks a question in VS Code. Only the first question of each chat is shown here.</p>
+    <button class="primary" id="retry" type="button">Check again</button>
+  </section>
+
+  <!-- error -->
+  <section class="panel" id="error-panel" hidden>
+    <h2>Couldn't load the next pair</h2>
+    <p id="error-text"></p>
+    <button class="primary" id="retry-err" type="button">Try again</button>
+  </section>
+
+  <!-- the pair -->
+  <main id="pair" hidden>
+    <section class="prompt" aria-label="The question">
+      <div class="q md" id="prompt"></div>
+      <div class="prompt-tools">
+        <button class="linklike" id="expand" type="button" hidden>Show the whole question</button>
+      </div>
+      <details class="conv" id="conv">
+        <summary>Show everything the models saw</summary>
+        <div id="conv-body"></div>
+      </details>
+    </section>
+
+    <section class="answers">
+      <article class="answer left" id="ans-left" aria-labelledby="h-left">
+        <h2 id="h-left">Left answer</h2>
+        <div class="body md" id="left"></div>
+      </article>
+      <article class="answer right" id="ans-right" aria-labelledby="h-right">
+        <h2 id="h-right">Right answer</h2>
+        <div class="body md" id="right"></div>
+      </article>
+    </section>
+
+    <p class="how">The two answers come from different models, shown in random order. Judge what you would
+      rather receive in your editor: does it work, does it do what was asked, is it clear? Longer isn't better.
+      A tool call is the step the model wanted to take next.</p>
+  </main>
+</div>
+
+<nav class="bar" id="bar" hidden aria-label="Vote">
+  <div class="row">
+    <button class="vote l" data-choice="left" type="button"><kbd>1</kbd>Left is better</button>
+    <button class="vote n tie" data-choice="tie" type="button"><kbd>3</kbd>About the same</button>
+    <button class="vote n bad" data-choice="both_bad" type="button"><kbd>4</kbd>Both are wrong</button>
+    <button class="vote r" data-choice="right" type="button"><kbd>2</kbd>Right is better</button>
+    <button class="skip" data-choice="skip" type="button"><kbd>S</kbd>Skip</button>
+  </div>
+</nav>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+  let voterId = store.get("arena.voter");
+  if (!voterId) {
+    voterId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/[^\w-]/g, "");
+    store.set("arena.voter", voterId);
+  }
+  let key = store.get("arena.key") || "";
+  let ballot = null;
+  let busy = false;
+
+  // ------------------------------------------------------------ markdown --
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function inline(s) {
+    const codes = [];
+    s = esc(s).replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return `\u0000${codes.length - 1}\u0000`; });
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+         .replace(/(^|[^*\w])\*([^*\s][^*]*)\*(?=[^*\w]|$)/g, "$1<em>$2</em>")
+         .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "$1");
+    return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[i]}</code>`);
+  }
+  function md(src) {
+    const lines = (src || "").replace(/\r\n?/g, "\n").split("\n");
+    let html = "", para = [], list = null;
+    const flushPara = () => { if (para.length) { html += `<p>${inline(para.join(" "))}</p>`; para = []; } };
+    const flushList = () => { if (list) { html += `<${list.tag}>${list.items.map(i => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`; list = null; } };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const fence = line.match(/^\s*(```+|~~~+)\s*([\w+#.-]*)/);
+      if (fence) {
+        flushPara(); flushList();
+        const body = [];
+        for (i++; i < lines.length && !lines[i].trim().startsWith(fence[1]); i++) body.push(lines[i]);
+        html += `<pre>${fence[2] ? `<span class="lang">${esc(fence[2])}</span>` : ""}<code>${esc(body.join("\n"))}</code></pre>`;
+        continue;
+      }
+      let m;
+      if (!line.trim()) { flushPara(); flushList(); continue; }
+      if ((m = line.match(/^(#{1,6})\s+(.*)/))) { flushPara(); flushList(); html += `<h${m[1].length < 3 ? 3 : 4}>${inline(m[2])}</h${m[1].length < 3 ? 3 : 4}>`; continue; }
+      if ((m = line.match(/^\s*>\s?(.*)/))) { flushPara(); flushList(); html += `<blockquote>${inline(m[1])}</blockquote>`; continue; }
+      if ((m = line.match(/^\s*([-*+]|\d+[.)])\s+(.*)/))) {
+        flushPara();
+        const tag = /\d/.test(m[1]) ? "ol" : "ul";
+        if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+        list.items.push(m[2]);
+        continue;
+      }
+      if (list && /^\s{2,}\S/.test(line)) { list.items[list.items.length - 1] += " " + line.trim(); continue; }
+      flushList();
+      para.push(line.trim());
+    }
+    flushPara(); flushList();
+    return html;
+  }
+  function renderAnswer(el, a) {
+    let html = md(a.text);
+    for (const tc of a.tool_calls) {
+      html += `<div class="tool"><div>Calls the <span class="name">${esc(tc.name)}</span> tool</div><pre><code>${esc(tc.arguments)}</code></pre></div>`;
+    }
+    el.innerHTML = html || "<p><em>(empty answer)</em></p>";
+    el.scrollTop = 0;
+  }
+
+  // ----------------------------------------------------------------- api --
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      ...opts,
+      headers: {
+        "content-type": "application/json",
+        "x-arena-voter": voterId,
+        ...(key ? { authorization: `Bearer ${key}` } : {}),
+        ...(opts.headers || {}),
+      },
+    });
+    if (res.status === 401) { const e = new Error("bad key"); e.code = 401; throw e; }
+    if (!res.ok) {
+      let msg = `The server answered ${res.status}.`;
+      try { const j = await res.json(); msg = j.detail || j.error?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
+  // ---------------------------------------------------------------- view --
+  function show(which) {
+    for (const id of ["key-panel", "empty-panel", "error-panel", "pair"]) $(id).hidden = id !== which;
+    $("bar").hidden = which !== "pair";
+    $("tally").hidden = which === "key-panel";
+  }
+  function setCounts(c) {
+    if (!c) return;
+    $("mine").textContent = c.mine; $("mine-unit").textContent = c.mine === 1 ? "time" : "times";
+    $("total").textContent = c.total;
+  }
+
+  function renderPair(p) {
+    ballot = p.ballot;
+    const q = $("prompt");
+    q.classList.remove("open", "clipped");
+    q.innerHTML = md(p.context.prompt);
+    requestAnimationFrame(() => {
+      const clipped = q.scrollHeight > q.clientHeight + 4;
+      q.classList.toggle("clipped", clipped);
+      $("expand").hidden = !clipped;
+    });
+    $("conv").open = false;
+    $("conv-body").innerHTML =
+      (p.context.tools.length ? `<div class="msg"><span class="role">tools available</span><pre class="raw">${esc(p.context.tools.join(", "))}</pre></div>` : "") +
+      p.context.messages.map(m => `<div class="msg"><span class="role">${esc(m.role || "")}</span><pre class="raw">${esc(m.text)}</pre></div>`).join("");
+    renderAnswer($("left"), p.left);
+    renderAnswer($("right"), p.right);
+    for (const b of document.querySelectorAll(".vote")) { b.classList.remove("fill"); b.disabled = false; }
+    $("ans-left").classList.remove("chosen"); $("ans-right").classList.remove("chosen");
+    show("pair");
+    window.scrollTo({ top: 0 });
+  }
+
+  async function loadNext() {
+    try {
+      const p = await api("/arena/api/next");
+      setCounts(p.counts);
+      if (!p.ballot) {
+        $("empty-text").textContent = p.scope === "all"
+          ? "You've reviewed every pair available. New ones show up a minute or two after someone asks a question in VS Code."
+          : "You've reviewed every pair from your team. New ones show up a minute or two after someone on your team asks a question in VS Code. Only the first question of each chat is shown here.";
+        show("empty-panel");
+        return;
+      }
+      renderPair(p);
+    } catch (e) {
+      if (e.code === 401) {
+        if (key) { $("key-err").textContent = "That key wasn't accepted. Check it against the one in your VS Code settings."; $("key-err").hidden = false; }
+        store.del("arena.key"); key = "";
+        show("key-panel");
+        $("key-input").focus();
+        return;
+      }
+      $("error-text").textContent = e.message || "The gateway didn't respond. Check your connection and try again.";
+      show("error-panel");
+    }
+  }
+
+  async function cast(choice) {
+    if (!ballot || busy) return;
+    busy = true;
+    const btn = document.querySelector(`[data-choice="${choice}"]`);
+    for (const b of document.querySelectorAll(".vote")) b.disabled = true;
+    if (btn && btn.classList.contains("vote")) btn.classList.add("fill");
+    if (choice === "left") $("ans-left").classList.add("chosen");
+    if (choice === "right") $("ans-right").classList.add("chosen");
+    try {
+      const r = await api("/arena/api/vote", { method: "POST", body: JSON.stringify({ ballot, choice }) });
+      setCounts(r.counts);
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      await new Promise(res => setTimeout(res, choice === "skip" || reduce ? 0 : 280));
+      await loadNext();
+    } catch (e) {
+      $("error-text").textContent = e.message;
+      show("error-panel");
+    } finally {
+      busy = false;
+    }
+  }
+
+  // -------------------------------------------------------------- events --
+  $("key-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    key = $("key-input").value.trim();
+    $("key-err").hidden = true;
+    if (key) store.set("arena.key", key);
+    loadNext();
+  });
+  $("change-key").addEventListener("click", () => {
+    store.del("arena.key"); key = ""; $("key-input").value = ""; show("key-panel"); $("key-input").focus();
+  });
+  $("retry").addEventListener("click", loadNext);
+  $("retry-err").addEventListener("click", loadNext);
+  $("expand").addEventListener("click", () => { $("prompt").classList.add("open"); $("prompt").classList.remove("clipped"); $("expand").hidden = true; });
+  for (const b of document.querySelectorAll("[data-choice]")) b.addEventListener("click", () => cast(b.dataset.choice));
+  document.addEventListener("keydown", (ev) => {
+    if ($("pair").hidden || ev.target.closest("input, textarea") || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    const map = { "1": "left", "2": "right", "3": "tie", "4": "both_bad", "s": "skip", "S": "skip" };
+    if (map[ev.key]) { ev.preventDefault(); cast(map[ev.key]); }
+  });
+
+  // An open gateway (no teams.lua) accepts calls without a key, so always try
+  // first; a 401 with no stored key just shows the key form.
+  loadNext();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+name: reyab
+
+x-vllm: &vllm
+  image: ${VLLM_IMAGE:-nvcr.io/nvidia/vllm:26.11-py3}
+  restart: unless-stopped
+  ipc: host
+  ulimits: { memlock: -1, stack: 67108864 }
+  environment:
+    HF_TOKEN: ${HF_TOKEN:-}
+    HF_HOME: /root/.cache/huggingface
+  volumes:
+    - hf-cache:/root/.cache/huggingface
+  deploy:
+    resources:
+      reservations:
+        devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+  healthcheck:
+    test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+    interval: 20s
+    timeout: 5s
+    retries: 90            # first start downloads weights
+    start_period: 120s
+
+services:
+  # ---------------------------------------------------------------- models --
+  oss-a:
+    <<: *vllm
+    container_name: reyab-oss-a
+    # "auto" is an extra served name so the router can send model="auto" here
+    # without rewriting the request body.
+    command: >
+      vllm serve ${OSS_A_HF_ID}
+      --served-model-name ${OSS_A_NAME} auto
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization ${OSS_A_GPU_UTIL:-0.40}
+      --max-model-len ${OSS_A_MAX_LEN:-65536}
+      --enable-prefix-caching
+      ${OSS_A_EXTRA_ARGS:-}
+
+  oss-b:
+    <<: *vllm
+    container_name: reyab-oss-b
+    depends_on:
+      oss-a: { condition: service_healthy }   # stagger: two engines profiling memory at once on GB10 is flaky
+    command: >
+      vllm serve ${OSS_B_HF_ID}
+      --served-model-name ${OSS_B_NAME} auto
+      --host 0.0.0.0 --port 8000
+      --gpu-memory-utilization ${OSS_B_GPU_UTIL:-0.30}
+      --max-model-len ${OSS_B_MAX_LEN:-65536}
+      --enable-prefix-caching
+      ${OSS_B_EXTRA_ARGS:-}
+
+  # ---------------------------------------------------------------- router --
+  router:
+    build: ./services/router
+    container_name: reyab-router
+    restart: unless-stopped
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      OSS_A_NAME: ${OSS_A_NAME}
+      OSS_B_NAME: ${OSS_B_NAME}
+      ROUTER_COMPLEXITY_THRESHOLD: ${ROUTER_COMPLEXITY_THRESHOLD:-0.22}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      retries: 40
+      start_period: 60s
+
+  # ------------------------------------------------ vLLM Semantic Router --
+  # Decides which OSS model serves the hidden "auto" model. Runs as an Envoy
+  # ext_proc server (gRPC :50051) behind agentrouter; policy in
+  # services/semantic-router/config.yaml.tmpl. CPU only (~1.7 GB RAM).
+  semantic-router:
+    image: ${VSR_IMAGE:-ghcr.io/vllm-project/semantic-router/vllm-sr:v0.4.0}
+    container_name: reyab-semantic-router
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        sed -e "s|__OSS_A_NAME__|$$OSS_A_NAME|g" -e "s|__OSS_B_NAME__|$$OSS_B_NAME|g"
+        /etc/vsr/config.yaml.tmpl > /app/config.yaml
+        && exec /app/start-router.sh /app/config.yaml
+    environment:
+      OSS_A_NAME: ${OSS_A_NAME}
+      OSS_B_NAME: ${OSS_B_NAME}
+    volumes:
+      - ./services/semantic-router:/etc/vsr:ro
+      - vsr-models:/app/models          # router-side models downloaded on first start
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/ready"]
+      interval: 10s
+      retries: 60
+      start_period: 30s
+
+  # -------------------------------------------------------------- recorder --
+  recorder:
+    build: ./services/recorder
+    container_name: reyab-recorder
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SHADOW_MODEL: ${SHADOW_MODEL:-claude-opus-5-5}
+      SHADOW_EFFORT: ${SHADOW_EFFORT:-high}
+      SHADOW_RATE: ${SHADOW_RATE:-1.0}
+      SHADOW_MAX_CONCURRENCY: ${SHADOW_MAX_CONCURRENCY:-8}
+      ROUTER_URL: http://router:8000
+      DB_PATH: /data/bench.db
+      ARENA_SCOPE: ${ARENA_SCOPE:-team}
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      retries: 10
+
+  # ------------------------------------------------------------- gateway --
+  agentrouter:
+    image: ${ENVOY_IMAGE:-envoyproxy/envoy:v1.35-latest}
+    container_name: reyab-agentrouter
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/etc/envoy-src/render.sh"]
+    environment:
+      OSS_A_NAME: ${OSS_A_NAME}
+      OSS_B_NAME: ${OSS_B_NAME}
+      SHADOW_MODEL: ${SHADOW_MODEL:-claude-opus-5-5}
+      ENABLE_AUTO: ${ENABLE_AUTO:-0}
+      AUTO_ROUTER: ${AUTO_ROUTER:-vsr}
+    volumes:
+      - ./envoy:/etc/envoy-src:ro
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+      - "127.0.0.1:${EVAL_PORT:-8081}:8081"
+      - "127.0.0.1:9901:9901"            # envoy admin
+    depends_on:
+      oss-a: { condition: service_healthy }
+      oss-b: { condition: service_healthy }
+      recorder: { condition: service_healthy }
+      router: { condition: service_healthy }
+      semantic-router: { condition: service_healthy }
+
+  # --------------------------------------------------------- observability --
+  # Optional: docker compose --profile observability up -d
+  prometheus:
+    profiles: [observability]
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
+    container_name: reyab-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    profiles: [observability]
+    image: ${GRAFANA_IMAGE:-grafana/grafana:12.1.1}
+    container_name: reyab-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"          # read-only view without login
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/reyab.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    depends_on: [prometheus]
+
+volumes:
+  hf-cache:
+  prometheus-data:
+  grafana-data:
+  vsr-models:

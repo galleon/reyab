@@ -1,0 +1,20 @@
+<section id="sizing-workload" class="sizing">
+<h2>Sizing three open models for 50 coding users</h2>
+<p class="lede">50 users at 4 requests a minute is 200 requests a minute. Each model is sized to hold all 50 sessions at once, so any model can take the whole room.</p>
+<div class="assume">
+<div><h3>Prompts</h3><p>30k tokens on average (60k in the 128k scenario); 80% already in the prefix cache, because agents resend the history.</p></div>
+<div><h3>Answers</h3><p>800 tokens on average, at 30 tokens/s or more per user with all 50 decoding together.</p></div>
+<div><h3>KV cache</h3><p>64k or 128k tokens reserved per session in FP8: 3.3M or 6.6M tokens per model.</p></div>
+<div><h3>Serving</h3><p>vLLM at 90% of GPU memory. Speculative decoding not counted, so speeds are a floor.</p></div>
+</div>
+<table class="spec">
+<thead><tr><th>Model</th><th class="num">Parameters<br>total / active</th><th class="num">Native weights</th><th class="num">NVFP4 weights</th><th class="num">KV cache<br>per token</th><th class="num">KV for<br>50 × 64k</th><th class="num">KV for<br>50 × 128k</th></tr></thead>
+<tbody>
+<tr><td class="m">GLM-5.3</td><td class="num">753B / 40B</td><td class="num">756 GB<small>FP8</small></td><td class="num">464 GB<small>−39%</small></td><td class="num">54 KB</td><td class="num">177 GB</td><td class="num">354 GB</td></tr>
+<tr><td class="m">DeepSeek V4.1 Flash<small>1017 release</small></td><td class="num">552B / 16B</td><td class="num">510 GB<small>FP4 experts, FP8 rest</small></td><td class="num">429 GB<small>−16%</small></td><td class="num hi">0.9 KB</td><td class="num hi">3 GB</td><td class="num hi">6 GB</td></tr>
+<tr><td class="m">Mistral Large 4</td><td class="num">1.05T / 52B</td><td class="num">1,061 GB<small>FP8</small></td><td class="num">610 GB<small>−42%</small></td><td class="num">47 KB</td><td class="num">154 GB</td><td class="num">309 GB</td></tr>
+</tbody>
+</table>
+<p class="foot">DeepSeek's compressed sparse attention stores about 60 times less KV per token than the other two, so its footprint is almost all weights. Its native release already ships experts in FP4, so NVFP4 saves little. Sizes are the Hugging Face checkpoints (zai-org, deepseek-ai, mistralai; NVFP4 from nvidia and mistralai), November 2026.</p>
+<aside>Workload: 50 concurrent users, 4 requests per minute each, so 200 a minute or about 3.3 a second. A coding request is long: around 30k tokens of prompt, of which most is already cached because agents resend the same history every step, and around 800 tokens of answer. Each model is sized for all 50 users at once, because in a hackathon everyone tends to switch to whichever model is doing best. KV cache is sized for 64k tokens per session in FP8, with a second scenario at 128k and 60k-token prompts. GLM-5.3 and Mistral Large 4 both use multi-head latent attention with a sparse indexer, around 50 KB per token, so 177 and 154 GB for 50 sessions at 64k, 354 and 309 GB at 128k. DeepSeek V4.1 Flash compresses its cache to under a kilobyte per token: 3 GB for the same load, 6 GB at 128k. NVFP4 cuts GLM and Mistral weights by about 40%; DeepSeek already ships its experts in FP4, so it gains only 16%.</aside>
+</section>

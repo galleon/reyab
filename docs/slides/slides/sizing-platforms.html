@@ -1,0 +1,24 @@
+<section id="sizing-platforms" class="sizing">
+<h2>B300 or RTX PRO 6000, native or NVFP4</h2>
+<p class="lede">GPUs and decode speed per user with 50 sessions at 64k context; totals also at 128k.</p>
+<table class="spec">
+<thead>
+<tr><th></th><th class="grp" colspan="2">B300 288 GB<br><small>Hybrid AI 289, ThinkSystem SR680a V4</small></th><th class="gap"></th><th class="grp" colspan="2">RTX PRO 6000 96 GB<br><small>Hybrid AI 285, ThinkSystem SR675 V3</small></th></tr>
+<tr><th>Model</th><th class="num">Native</th><th class="num">NVFP4</th><th class="gap"></th><th class="num">Native</th><th class="num">NVFP4</th></tr>
+</thead>
+<tbody>
+<tr><td class="m">GLM-5.3</td><td class="num">4 GPUs<small>37 tok/s</small><small>8 GPUs at 128k</small></td><td class="num">4 GPUs<small class="hi">59 tok/s</small></td><td class="gap"></td><td class="num">24 GPUs<small>31 tok/s</small></td><td class="num hi">16 GPUs<small>33 tok/s</small></td></tr>
+<tr><td class="m">DeepSeek V4.1 Flash</td><td class="num">4 GPUs<small>77 tok/s</small></td><td class="num hi">2 GPUs<small>46 tok/s</small></td><td class="gap"></td><td class="num">16 GPUs<small>44 tok/s</small></td><td class="num hi">8 GPUs<small>33 tok/s</small></td></tr>
+<tr><td class="m">Mistral Large 4</td><td class="num">8 GPUs<small>53 tok/s</small></td><td class="num hi">4 GPUs<small>45 tok/s</small></td><td class="gap"></td><td class="num">40 GPUs<small>37 tok/s</small></td><td class="num hi">24 GPUs<small>39 tok/s</small></td></tr>
+<tr class="total"><td>Total at 64k</td><td class="num">2 servers<small>16 GPUs, about 29 kW</small></td><td class="num">2 servers<small>10 GPUs, about 29 kW</small></td><td class="gap"></td><td class="num">10 servers<small>80 GPUs, about 65 kW</small></td><td class="num hi">6 servers<small>48 GPUs, about 39 kW</small></td></tr>
+<tr class="total"><td>Total at 128k</td><td class="num">3 servers<small>20 GPUs, about 44 kW</small></td><td class="num hi">2 servers<small>10 GPUs, about 29 kW</small></td><td class="gap"></td><td class="num">10 servers<small>80 GPUs, about 65 kW</small></td><td class="num hi">6 servers<small>48 GPUs, about 39 kW</small></td></tr>
+</tbody>
+</table>
+<div class="takeaways">
+<p><b>B300: context length decides.</b> At 64k both formats fit in two servers; NVFP4 frees 6 GPUs and makes GLM-5.3 60% faster. At 128k, native GLM-5.3 needs 8 GPUs for its KV cache, so native takes three servers and NVFP4 still two.</p>
+<p><b>RTX PRO 6000: memory bandwidth sets the size.</b> With 1.8 TB/s per card and no NVLink, GPUs are added for speed, so 128k fits in the same servers. NVFP4 cuts 10 servers to 6 and about 65 kW to 39 kW.</p>
+<p><b>Test NVFP4 before switching.</b> Run both formats side by side in reyab and compare them with the LLM judge and blind votes on real coding turns.</p>
+</div>
+<p class="foot">Estimates from docs/sizing/infra_sizing.py; the 128k scenario assumes 60k-token prompts. GPU count is the smallest that holds weights plus KV, decodes at 30 tok/s or more and keeps prefill under half the compute. Decode is a memory-bandwidth estimate at batch 50 (70% efficiency on B300, 55% on PCIe cards, 80% across servers). Power is per server, approximate. Hybrid AI 289 is B300 only; RTX PRO 6000 comes on the Hybrid AI 285.</p>
+<aside>Two platforms. B300 is the Hybrid AI 289: ThinkSystem SR680a V4, eight B300 with 288 GB of HBM each, NVLink inside the server. RTX PRO 6000 Blackwell is not part of the 289; Lenovo offers it on the Hybrid AI 285, in the SR675 V3 with eight 96 GB cards and no NVLink. On B300 at 64k context the whole three-model service fits in two servers in native format. NVFP4 doesn't remove a server there, but it leaves six GPUs free and GLM-5.3 decodes 60% faster because there are fewer bytes to read per token. At 128k context GLM-5.3's KV cache doubles to 354 GB, so native GLM needs a full server of 8 GPUs and the build grows to three servers; with NVFP4 it still fits in two. On RTX PRO 6000 the limit is memory bandwidth: to keep 50 users above 30 tokens a second you need many cards, so native needs ten servers. NVFP4 halves the bytes per token and brings it down to six servers. Those servers already have more memory than needed, so 128k context fits without adding any. Whatever you pick, check NVFP4 quality on your own coding tasks: reyab can serve both formats and the judge and arena will tell you if anything regressed.</aside>
+</section>

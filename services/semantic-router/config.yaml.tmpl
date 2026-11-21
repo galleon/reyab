@@ -1,0 +1,120 @@
+# vLLM Semantic Router (v0.4.0) policy for the hidden "auto" model.
+# Rendered by render.sh (__OSS_A_NAME__ / __OSS_B_NAME__ substituted).
+# Runs as an Envoy ext_proc filter on agentrouter; only "auto" requests reach it.
+version: v0.3
+
+listeners:
+  - name: http-8899          # unused in ext_proc mode; the schema requires one
+    address: 0.0.0.0
+    port: 8899
+    timeout: 1200s
+
+global:
+  router:
+    auto_model_names: [auto]
+  stores:
+    response_cache:
+      enabled: false
+      backend_type: memory
+
+providers:
+  defaults:
+    model: __OSS_B_NAME__
+  models:
+    - name: __OSS_A_NAME__
+      provider_model_id: __OSS_A_NAME__
+      api_format: openai
+      backend_refs:
+        - name: oss-a
+          endpoint: oss-a:8000
+          protocol: http
+          provider: vllm
+          weight: 1
+    - name: __OSS_B_NAME__
+      provider_model_id: __OSS_B_NAME__
+      api_format: openai
+      backend_refs:
+        - name: oss-b
+          endpoint: oss-b:8000
+          protocol: http
+          provider: vllm
+          weight: 1
+
+routing:
+  modelCards:
+    - name: __OSS_A_NAME__
+      description: Code-specialised model, strong at edits and tool use.
+      capabilities: [chat, tools]
+      context_window_size: 65536
+    - name: __OSS_B_NAME__
+      description: General reasoning model.
+      capabilities: [chat, reasoning, tools]
+      context_window_size: 65536
+
+  signals:
+    conversation:
+      - name: agentic
+        description: The request carries tool definitions (agent mode).
+        feature:
+          type: exists
+          source:
+            type: tool_definition
+    keywords:
+      - name: code_task
+        operator: OR
+        method: bm25
+        bm25_threshold: 0.1
+        case_sensitive: false
+        keywords: [code, function, refactor, bug, implement, class, test, compile, stack trace, regex, sql]
+    complexity:
+      - name: difficulty
+        threshold: 0.10
+        description: Work needed to produce a correct answer.
+        hard:
+          candidates:
+            - Design an algorithm with tight complexity bounds and prove it is correct.
+            - Find the root cause of a concurrency bug across several interacting components.
+            - Compare architectural trade-offs and justify the choice under conflicting constraints.
+            - Derive the math behind this optimisation and check edge cases.
+        easy:
+          candidates:
+            - Rename this variable.
+            - What does this flag do?
+            - Convert this snippet to another syntax.
+            - Add a docstring to this function.
+
+  decisions:
+    - name: agent_mode
+      description: Tool-using sessions go to the coder model.
+      priority: 300
+      rules:
+        operator: AND
+        conditions:
+          - type: conversation
+            name: agentic
+      modelRefs:
+        - model: __OSS_A_NAME__
+      algorithm: { type: static }
+    - name: hard_reasoning
+      description: Hard prompts go to the reasoning model.
+      priority: 200
+      rules:
+        operator: AND
+        conditions:
+          - type: complexity
+            name: difficulty:hard
+      modelRefs:
+        - model: __OSS_B_NAME__
+          use_reasoning: true
+      algorithm: { type: static }
+    - name: code
+      description: Ordinary coding prompts go to the coder model.
+      priority: 100
+      rules:
+        operator: AND
+        conditions:
+          - type: keyword
+            name: code_task
+      modelRefs:
+        - model: __OSS_A_NAME__
+      algorithm: { type: static }

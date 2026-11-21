@@ -1,0 +1,32 @@
+<section id="bom" class="sizing">
+<h2>Bill of materials for the NVFP4 builds</h2>
+<p class="lede">Three models, 50 coding users, 64k or 128k context. One site, no spares.</p>
+<div class="bom">
+<div>
+<h3>B300, Lenovo Hybrid AI 289<small>About 25U and 32 kW</small></h3>
+<table class="bomt">
+<tr><td class="q">2</td><td><b>ThinkSystem SR680a V4</b>, 8U<small>HGX B300 NVL8 (8 × 288 GB), 2 × Xeon 6767P, 2 TB DDR5, 4 × 3.84 TB NVMe, BlueField-3 B3240 2 × 400G</small></td></tr>
+<tr><td class="q">3</td><td><b>ThinkSystem SR655 V3</b>, 2U, service nodes<small>Kubernetes control plane, Base Command Manager, reyab gateway and monitoring. EPYC 9335, 384 GB, BlueField-3 B3220 2 × 200G</small></td></tr>
+<tr><td class="q">2</td><td><b>NVIDIA SN4700</b> 400GbE, 1U<small>Converged network, redundant pair</small></td></tr>
+<tr><td class="q">1</td><td><b>NVIDIA SN2201</b> 1GbE, 1U<small>Out-of-band management</small></td></tr>
+<tr class="none"><td class="q">0</td><td><b>GPU fabric switches</b><small>Not needed: each model runs inside one server's NVLink domain</small></td></tr>
+</table>
+</div>
+<div>
+<h3>RTX PRO 6000, Lenovo Hybrid AI 285<small>About 29U and 44 kW</small></h3>
+<table class="bomt">
+<tr><td class="q">6</td><td><b>ThinkSystem SR675 V3</b>, 3U<small>8 × RTX PRO 6000 Blackwell Server Edition 96 GB, 2 × EPYC 9535, 1.5 TB DDR5, 2 × 3.84 TB NVMe, 4 × BlueField-3 B3140H 400G, BlueField-3 B3220 2 × 200G</small></td></tr>
+<tr><td class="q">3</td><td><b>ThinkSystem SR655 V3</b>, 2U, service nodes<small>Same roles and configuration as the B300 build</small></td></tr>
+<tr><td class="q">2</td><td><b>NVIDIA SN5610</b> 800GbE, 2U<small>GPU fabric and converged network on shared switches, redundant pair. Needed because GLM-5.3 spans 2 servers and Mistral Large 4 spans 3</small></td></tr>
+<tr><td class="q">1</td><td><b>NVIDIA SN2201</b> 1GbE, 1U<small>Out-of-band management</small></td></tr>
+</table>
+</div>
+</div>
+<div class="takeaways">
+<p><b>Native format instead.</b> B300 needs a third SR680a V4 at 128k context (still two at 64k). RTX PRO 6000 needs 10 SR675 V3; the switches stay the same.</p>
+<p><b>Storage.</b> The three NVFP4 checkpoints total about 1.5 TB and fit on each server's local NVMe. Shared storage is optional.</p>
+<p><b>Below one scalable unit.</b> Lenovo's full platform uses 4-server units and 5 service nodes per unit. Three service nodes is the minimum for a highly available Kubernetes control plane.</p>
+</div>
+<p class="foot">Server and switch configurations from the Lenovo Press bills of materials for Hybrid AI 289 (LP2286) and Hybrid AI 285 (LP2181). Rack units and power are approximate. Confirm part numbers and quantities with Lenovo before ordering.</p>
+<aside>This is the bill of materials for the NVFP4 builds, which cover both the 64k and 128k context scenarios. On B300 it is two SR680a V4 servers with eight B300 each, three SR655 V3 service nodes and three switches: a redundant pair of 400 gigabit converged switches and one out-of-band management switch. No GPU fabric switch is needed, because each model fits inside one server and talks over NVLink. On RTX PRO 6000 it is six SR675 V3 servers with eight cards each, the same three service nodes, and a pair of 800 gigabit SN5610 switches carrying both the GPU fabric and the converged network, because GLM-5.3 and Mistral Large 4 span several servers. The service nodes run the Kubernetes control plane, Base Command Manager, and the reyab gateway, recorder and monitoring. If you stay in native format, B300 needs a third server at 128k context and RTX PRO 6000 needs ten servers. Rack units and power are estimates; part numbers come from Lenovo's published bills of materials and should be confirmed with Lenovo.</aside>
+</section>

@@ -1,0 +1,26 @@
+# Cline (VS Code extension): values for Cline's settings panel (gear icon).
+#
+# Cline does NOT read this file. It keeps provider settings in VS Code's
+# extension storage, so copy each value below into the field of the same
+# name. Field names can differ slightly between Cline versions.
+#
+# Replace GATEWAY_HOST and the API key with the team key from envoy/teams.lua.
+# Over SSH (ssh -N -L 8080:localhost:8080 <user>@GATEWAY_HOST), use localhost.
+# Check access first:
+#   curl -s http://GATEWAY_HOST:8080/v1/models -H "Authorization: Bearer hk-REPLACE-ME-team-01"
+
+API Provider: OpenAI Compatible
+Base URL: http://GATEWAY_HOST:8080/v1
+API Key: hk-REPLACE-ME-team-01
+
+# One of: qwen3-coder (best with Cline's tool format), gpt-oss,
+# or auto (hidden; the semantic router picks, only if ENABLE_AUTO=1).
+Model ID: qwen3-coder
+
+# Model Configuration
+Context Window Size: 65536        # vLLM --max-model-len (OSS_A_MAX_LEN / OSS_B_MAX_LEN)
+Max Output Tokens: 8192
+Supports Images: false
+Supports Prompt Caching: false
+Input Price: 0                    # self-hosted, so cost shows as 0
+Output Price: 0

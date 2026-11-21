@@ -1,0 +1,7 @@
+.env
+data/
+envoy/teams.lua
+__pycache__/
+*.csv
+.claude/
+*.db

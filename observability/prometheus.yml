@@ -1,0 +1,23 @@
+# Scrapes every reyab component over the compose network.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: envoy                 # agentrouter: per-backend requests, status codes, latency, ext_proc
+    metrics_path: /stats/prometheus
+    static_configs: [{ targets: ["agentrouter:9901"] }]
+
+  - job_name: vllm                  # TTFT, inter-token latency, queue, KV cache, tokens
+    static_configs:
+      - targets: ["oss-a:8000"]
+        labels: { backend: oss-a }
+      - targets: ["oss-b:8000"]
+        labels: { backend: oss-b }
+
+  - job_name: semantic-router       # "auto" decisions and signal matches
+    static_configs: [{ targets: ["semantic-router:9190"] }]
+
+  - job_name: recorder              # per-team turns, Opus shadow, arena votes (computed from bench.db)
+    scrape_interval: 15s
+    static_configs: [{ targets: ["recorder:8000"] }]

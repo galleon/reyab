@@ -1,0 +1,30 @@
+# Continue (VS Code extension) -> ~/.continue/config.yaml
+# Replace GATEWAY_HOST and the apiKey with the team key from envoy/teams.lua.
+name: Hackathon
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Qwen3 Coder (OSS)
+    provider: openai
+    model: qwen3-coder
+    apiBase: http://GATEWAY_HOST:8080/v1
+    apiKey: hk-REPLACE-ME-team-01
+    roles: [chat, edit, apply]
+    capabilities: [tool_use]
+
+  - name: gpt-oss (OSS)
+    provider: openai
+    model: gpt-oss
+    apiBase: http://GATEWAY_HOST:8080/v1
+    apiKey: hk-REPLACE-ME-team-01
+    roles: [chat, edit, apply]
+    capabilities: [tool_use]
+
+  # Tab-autocomplete goes through /v1/completions and is NOT shadowed to Opus.
+  - name: Autocomplete (OSS)
+    provider: openai
+    model: qwen3-coder
+    apiBase: http://GATEWAY_HOST:8080/v1
+    apiKey: hk-REPLACE-ME-team-01
+    roles: [autocomplete]

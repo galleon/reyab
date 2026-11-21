@@ -1,0 +1,8 @@
+-- Copy to envoy/teams.lua (git-ignored) and restart the agentrouter container.
+-- Maps a bearer key (what participants paste into VS Code) to a team id.
+-- The team id is attached to every recorded request so results can be sliced
+-- per team. Generate keys with:  python3 -c "import secrets;print('hk-'+secrets.token_urlsafe(18))"
+return {
+  ["hk-REPLACE-ME-team-01"] = "team-01",
+  ["hk-REPLACE-ME-team-02"] = "team-02",
+}
