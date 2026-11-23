@@ -98,3 +98,5 @@ table.bomt { width: 100%; border-collapse: collapse; font-size: 22px; line-heigh
 .bomt tr.none td { color: var(--body); }
 .bomt tr.sum td { border-bottom: none; font-weight: 600; padding-top: 12px; }
 #bom .takeaways { margin-top: 20px; }
+#two-servers .spec td { padding: 12px 16px; }
+#two-servers .spec tr.total td { color: var(--body); font-weight: 400; border-top: 2px solid #C9CFD8; }

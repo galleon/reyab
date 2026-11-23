@@ -288,7 +288,8 @@ model, backend, route, status, duration, time to first byte).
 | `clients/continue-config.yaml` | VS Code (Continue) configuration |
 | `clients/cline-settings.yaml` | Values to enter in Cline's settings panel |
 | `docs/sizing/infra_sizing.py` | Infrastructure sizing for three open models (64k and 128k context) |
-| `docs/slides/` | Architecture, sizing and bill-of-materials slides (deck source) |
+| `docs/sizing/mixed_b300_h200.py` | Users one B300 server plus one H200 server can serve |
+| `docs/slides/` | Architecture, sizing, bill-of-materials and two-server slides (deck source) |
 | `docs/BENCHMARKING.md` | Evaluation design and experimental hygiene |
 
 ## Operations

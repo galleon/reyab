@@ -1,0 +1,20 @@
+<section id="two-servers" class="sizing">
+<h2>One B300 server plus one H200 server</h2>
+<p class="lede">An SR680a V4 with 8 × B300 and an SR675 V3 with 8 × H200 NVL serve all three models: about 130 users at 64k context, 65 at 128k.</p>
+<table class="spec">
+<thead><tr><th>Server</th><th>Model, format</th><th class="num">GPUs</th><th class="num">Users<br>at 64k</th><th class="num">Users<br>at 128k</th><th>Limited by</th></tr></thead>
+<tbody>
+<tr><td>SR680a V4<small>8 × B300 288 GB</small></td><td class="m">GLM-5.3<small>NVFP4</small></td><td class="num">4</td><td class="num">150</td><td class="num">75</td><td>KV cache memory</td></tr>
+<tr><td>SR680a V4<small>8 × B300 288 GB</small></td><td class="m">Mistral Large 4<small>NVFP4</small></td><td class="num">4</td><td class="num hi">130</td><td class="num hi">65</td><td>KV cache memory</td></tr>
+<tr><td>SR675 V3<small>8 × H200 NVL 141 GB</small></td><td class="m">DeepSeek V4.1 Flash<small>native</small></td><td class="num">8</td><td class="num">180</td><td class="num">90</td><td>Prompt processing</td></tr>
+<tr class="total"><td>Not recommended</td><td class="m">GLM-5.3 on H200<small>FP8</small></td><td class="num">8</td><td class="num">55</td><td class="num">25</td><td>756 GB of weights leave little room for KV</td></tr>
+</tbody>
+</table>
+<div class="takeaways">
+<p><b>Put the NVFP4 models on B300.</b> H200 has no FP4 tensor cores. DeepSeek needs almost no KV cache, so it makes the best use of the H200's smaller memory. Mistral Large 4 in FP8 does not fit on the H200 server at all.</p>
+<p><b>Room to spare for 50 users.</b> Even if every user picks the same model, the weakest one holds 130 users at 64k and 65 at 128k. Spread across the three models, the total is several times higher.</p>
+<p><b>Two checks before ordering.</b> DeepSeek's native experts are FP4: confirm your vLLM runs them on Hopper, or use an FP8 copy (about 560 GB, similar capacity). Compare NVFP4 with native quality in reyab.</p>
+</div>
+<p class="foot">Users: concurrent sessions at 4 requests a minute each, 800-token answers at 30 tok/s or more, prompts of 30k (64k scenario) or 60k tokens (128k), prefill under half the compute. Estimates from docs/sizing/mixed_b300_h200.py; H200 NVL assumed at 4.8 TB/s and 60% bandwidth efficiency.</p>
+<aside>This is a smaller, mixed option: one B300 server and one H200 server. The placement matters. GLM-5.3 and Mistral Large 4 run in NVFP4 on four B300 each, because only Blackwell computes in FP4. DeepSeek V4.1 Flash goes on the H200 server: its compressed attention needs almost no KV cache, so the H200's 141 GB per GPU is plenty, and prompt processing is what limits it, at about 180 users. The weakest model is Mistral Large 4, at 130 users with 64k context and 65 with 128k, limited by KV cache memory. That is two and a half times the 50 users we planned for. The tempting alternative, GLM-5.3 in FP8 on the H200, leaves only 55 users at 64k and 25 at 128k, and Mistral in FP8 doesn't fit on the H200 at all. Before ordering, check that vLLM runs DeepSeek's FP4 experts on Hopper, or use an FP8 copy, and compare NVFP4 quality against native on real coding turns.</aside>
+</section>
